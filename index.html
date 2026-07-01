@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>DTP – In Balance</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   :root {
     --oranje: #F5A623;
@@ -113,6 +114,13 @@
   .success-sub { font-size: 15px; opacity: 0.8; max-width: 400px; line-height: 1.7; margin-bottom: 28px; }
   .countdown { font-size: 13px; opacity: 0.5; letter-spacing: 0.06em; text-transform: uppercase; }
 
+  #handoverOverlay { display: none; position: fixed; inset: 0; background: #27AE60; z-index: 998; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; padding: 40px; }
+  #handoverOverlay.visible { display: flex; }
+  .handover-icon { font-size: 90px; margin-bottom: 24px; animation: pop 0.5s ease; }
+  .handover-title { font-size: 32px; font-weight: 700; margin-bottom: 16px; }
+  .handover-sub { font-size: 18px; opacity: 0.9; max-width: 440px; line-height: 1.7; margin-bottom: 40px; }
+  .btn-medewerker { background: white; color: #27AE60; border: none; border-radius: 12px; padding: 18px 40px; font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+
   /* PRINT */
   @media print {
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -169,6 +177,13 @@
 </head>
 <body>
 
+<div id="handoverOverlay">
+  <div class="handover-icon">🙏</div>
+  <div class="handover-title">Bedankt!</div>
+  <div class="handover-sub">Uw gegevens zijn ingevuld. Geef de iPad terug aan de medewerker achter de balie.</div>
+  <button class="btn-medewerker" onclick="medewerkerOpslaanStart()">Medewerker: PDF opslaan</button>
+</div>
+
 <div id="successOverlay">
   <div class="success-icon">✓</div>
   <div class="success-title">PDF opgeslagen</div>
@@ -182,7 +197,7 @@
 </header>
 <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
 
-<main>
+<main id="pdfInhoud">
 
   <div class="card">
     <div class="print-header">
@@ -260,7 +275,7 @@
 
 <div class="bottom-bar">
   <button class="btn btn-ghost" onclick="resetForm()">Leegmaken</button>
-  <button class="btn btn-save" id="saveBtn" onclick="savePDF()">PDF opslaan</button>
+  <button class="btn btn-save" id="saveBtn" onclick="savePDF()">Klaar met invullen</button>
 </div>
 
 <script>
@@ -398,21 +413,36 @@ function savePDF() {
     return;
   }
   msg.classList.remove("visible");
-  document.getElementById("printDatum").textContent = new Date().toLocaleDateString("nl-NL", {day:"2-digit",month:"long",year:"numeric"});
-  document.getElementById("printDatum2").textContent = document.getElementById("printDatum").textContent;
-  successShown = false;
-  var naam = (document.getElementById("naam") ? document.getElementById("naam").value : "") || "onbekend";
-  var gebRaw = document.getElementById("geboortedatum") ? document.getElementById("geboortedatum").value : "";
-  var geb = gebRaw ? new Date(gebRaw).toLocaleDateString("nl-NL", {day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-") : "onbekend";
-  var vandaag = new Date().toLocaleDateString("nl-NL", {day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-");
-  var origTitle = document.title;
-  document.title = "DTP_" + naam + "_" + geb + "_" + vandaag;
-  window.print();
-  document.title = origTitle;
-  setTimeout(function() { showSuccess(); }, 1500);
+
+  var datumNL = new Date().toLocaleDateString("nl-NL", {day:"2-digit",month:"long",year:"numeric"});
+  document.getElementById("printDatum").textContent = datumNL;
+  document.getElementById("printDatum2").textContent = datumNL;
+
+  document.getElementById("handoverOverlay").classList.add("visible");
 }
 
-window.addEventListener("afterprint", function() { showSuccess(); });
+function medewerkerOpslaanStart() {
+  document.getElementById("handoverOverlay").classList.remove("visible");
+
+  var naam = (document.getElementById("naam").value || "onbekend").trim();
+  var gebRaw = document.getElementById("geboortedatum").value;
+  var geb = gebRaw ? new Date(gebRaw).toLocaleDateString("nl-NL", {day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-") : "onbekend";
+  var vandaag = new Date().toLocaleDateString("nl-NL", {day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-");
+  var bestandsnaam = "DTP_" + naam + "_" + geb + "_" + vandaag + ".pdf";
+
+  var element = document.getElementById("pdfInhoud");
+  var opt = {
+    margin: [10, 10, 10, 10],
+    filename: bestandsnaam,
+    image: { type: "jpeg", quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+  };
+
+  html2pdf().set(opt).from(element).save().then(function() {
+    showSuccess();
+  });
+}
 
 function showSuccess() {
   if (successShown) return;
